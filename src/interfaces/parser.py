@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from oca.domain.models import Receipt
+from src.domain.models import Receipt
 
 class ReceiptParser(ABC):
     @abstractmethod

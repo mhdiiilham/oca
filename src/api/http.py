@@ -1,7 +1,7 @@
 from fastapi import FastAPI, UploadFile, File
-from oca.usecases.ocr_service import OcrService
-from oca.infra.tesseract_engine import TesseractOcrEngine
-from oca.infra.parser_regex import RegexReceiptParser
+from src.usecases.ocr_service import OcrService
+from src.infra.tesseract_engine import TesseractOcrEngine
+from src.infra.parser_regex import RegexReceiptParser
 
 app = FastAPI()
 

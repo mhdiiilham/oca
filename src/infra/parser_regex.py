@@ -1,6 +1,6 @@
 import re
-from oca.domain.models import Receipt, Item
-from oca.interfaces.parser import ReceiptParser
+from src.domain.models import Receipt, Item
+from src.interfaces.parser import ReceiptParser
 
 class RegexReceiptParser(ReceiptParser):
     def parse(self, text: str) -> Receipt:

@@ -1,6 +1,6 @@
-from oca.interfaces.ocr_engine import OcrEngine
-from oca.interfaces.parser import ReceiptParser
-from oca.domain.models import Receipt
+from src.interfaces.ocr_engine import OcrEngine
+from src.interfaces.parser import ReceiptParser
+from src.domain.models import Receipt
 
 class OcrService:
     def __init__(self, engine: OcrEngine, parser: ReceiptParser):

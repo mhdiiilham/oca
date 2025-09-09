@@ -8,11 +8,12 @@ import (
 
 // FieldMeta holds metadata about a struct field for ORM mapping.
 type FieldMeta struct {
-	Name      string // Go struct field name
-	Column    string // DB column name from tag
-	Index     int    // field index in struct
-	IsPrimary bool   // true if marked as primary key
-	IsAuto    bool   // true if marked as auto increment
+	Name      string            // Go struct field name
+	Column    string            // DB column name from `db` tag
+	Index     int               // field index in struct
+	IsPrimary bool              // true if marked as primary key
+	IsAuto    bool              // true if marked as auto increment
+	Schema    map[string]string // parsed key:value pairs from `schema` tag
 }
 
 var (
@@ -90,6 +91,21 @@ func parseFields(entity any) []struct {
 	}, len(metas))
 
 	for i, m := range metas {
+		// Parse schema tag
+		schemaTag := val.Type().Field(m.Index).Tag.Get("schema")
+		schema := map[string]string{}
+		if schemaTag != "" {
+			pairs := strings.Split(schemaTag, ",")
+			for _, pair := range pairs {
+				kv := strings.SplitN(pair, ":", 2)
+				if len(kv) == 2 {
+					schema[strings.TrimSpace(kv[0])] = strings.TrimSpace(kv[1])
+				}
+			}
+		}
+
+		m.Schema = schema
+
 		result[i] = struct {
 			FieldMeta
 			Value interface{}

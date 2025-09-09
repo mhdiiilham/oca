@@ -24,11 +24,4 @@ type GenericStore[T any] interface {
 	//
 	// u.ID and u.CreatedAt will be automatically set if applicable.
 	Insert(ctx context.Context, entity *T) error
-
-	// FindBy retrieves a single record of type T where the given field equals the provided value.
-	// Returns an error if the field does not exist or if the record is not found.
-	//
-	// Example:
-	//   user, err := repo.FindBy(ctx, "email", "alice@example.com")
-	FindBy(ctx context.Context, field string, value any) (*T, error)
 }

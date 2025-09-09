@@ -3,7 +3,6 @@ package oca
 import (
 	"context"
 	"reflect"
-	"strings"
 
 	"github.com/mhdiiilham/oca/query"
 )
@@ -89,19 +88,4 @@ func (r *Repository[T]) Insert(ctx context.Context, entity *T) error {
 	// Normal exec (no auto-returning)
 	_, err := r.db.ExecContext(ctx, sqlStr, sqlArgs...)
 	return err
-}
-
-// resolveTableName returns the table name either from Tabler or from struct name.
-func resolveTableName[T any](entity T) string {
-	if t, ok := any(entity).(Tabler); ok {
-		return t.TableName()
-	}
-
-	typ := reflect.TypeOf(entity)
-	if typ.Kind() == reflect.Ptr {
-		typ = typ.Elem()
-	}
-
-	// Fallback: use lowercase struct name
-	return strings.ToLower(typ.Name()) + "s"
 }

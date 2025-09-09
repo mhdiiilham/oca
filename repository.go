@@ -12,6 +12,6 @@ type Repository[T any] struct {
 }
 
 // NewRepository returns a new generic repository.
-func NewRepository[T any](db *sql.DB) *Repository[T] {
+func NewRepository[T any](db *sql.DB) GenericStore[T] {
 	return &Repository[T]{db: db}
 }

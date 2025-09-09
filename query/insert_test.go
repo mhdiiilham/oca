@@ -7,72 +7,65 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestInsertBuilder_Basic(t *testing.T) {
-	q := query.InsertInto("users").
-		Columns("name", "email").
-		Values("Alice", "alice@example.com")
+func TestInsertSingleRow(t *testing.T) {
+	sql, args := query.InsertInto("users").
+		Columns("id", "name").
+		Values(1, "Alice").
+		ToSQL()
 
-	sql, args := q.ToSQL()
-
-	expectedSQL := "INSERT INTO users (name, email) VALUES (?, ?)"
-	expectedArgs := []interface{}{"Alice", "alice@example.com"}
-	assert.Equal(t, expectedSQL, sql)
-	assert.Equal(t, expectedArgs, args)
-
-	for i, v := range expectedArgs {
-		assert.Equal(t, v, args[i])
-	}
+	assert.Equal(t, "INSERT INTO users (id, name) VALUES (?, ?)", sql)
+	assert.Equal(t, []interface{}{1, "Alice"}, args)
 }
 
-func TestInsertBuilder_Returning(t *testing.T) {
-	q := query.InsertInto("users").
-		Columns("name", "email").
-		Values("Bob", "bob@example.com").
-		Returning("id", "created_at")
+func TestInsertMultipleRows(t *testing.T) {
+	sql, args := query.InsertInto("users").
+		Columns("id", "name").
+		Values(1, "Alice").
+		Values(2, "Bob").
+		ToSQL()
 
-	sql, args := q.ToSQL()
-
-	expectedSQL := "INSERT INTO users (name, email) VALUES (?, ?) RETURNING id, created_at"
-	assert.Equal(t, expectedSQL, sql)
-
-	expectedArgs := []interface{}{"Bob", "bob@example.com"}
-	assert.Equal(t, expectedArgs, args)
-
-	for i, v := range expectedArgs {
-		assert.Equal(t, v, args[i])
-	}
+	assert.Equal(t, "INSERT INTO users (id, name) VALUES (?, ?), (?, ?)", sql)
+	assert.Equal(t, []interface{}{1, "Alice", 2, "Bob"}, args)
 }
 
-func TestInsertBuilder_ReturningID(t *testing.T) {
-	q := query.InsertInto("users").
-		Columns("username").
-		Values("charlie").
-		ReturningID()
+func TestInsertWithReturning(t *testing.T) {
+	sql, args := query.InsertInto("users").
+		Columns("id", "name").
+		Values(1, "Alice").
+		Returning("id", "created_at").
+		ToSQL()
 
-	sql, args := q.ToSQL()
-
-	expectedSQL := "INSERT INTO users (username) VALUES (?) RETURNING id"
-	assert.Equal(t, expectedSQL, sql)
-
-	expectedArgs := []interface{}{"charlie"}
-	assert.Equal(t, expectedArgs, args)
-
-	for i, v := range expectedArgs {
-		assert.Equal(t, v, args[i])
-	}
+	assert.Equal(t, "INSERT INTO users (id, name) VALUES (?, ?) RETURNING id, created_at", sql)
+	assert.Equal(t, []interface{}{1, "Alice"}, args)
 }
 
-// New test for RawSQL support (e.g., default: now())
-func TestInsertBuilder_RawSQLValue(t *testing.T) {
-	q := query.InsertInto("todos").
-		Columns("title", "created_at").
-		Values("Task 1", query.Raw("NOW()"))
+func TestInsertWithReturningID(t *testing.T) {
+	sql, args := query.InsertInto("users").
+		Columns("id", "name").
+		Values(1, "Alice").
+		ReturningID().
+		ToSQL()
 
-	sql, args := q.ToSQL()
+	assert.Equal(t, "INSERT INTO users (id, name) VALUES (?, ?) RETURNING id", sql)
+	assert.Equal(t, []interface{}{1, "Alice"}, args)
+}
 
-	expectedSQL := "INSERT INTO todos (title, created_at) VALUES (?, NOW())"
-	assert.Equal(t, expectedSQL, sql)
+func TestInsertWithRawSQL(t *testing.T) {
+	sql, args := query.InsertInto("users").
+		Columns("name", "created_at").
+		Values("Alice", query.Raw("NOW()")).
+		ToSQL()
 
-	expectedArgs := []interface{}{"Task 1"} // only the Go value
-	assert.Equal(t, expectedArgs, args)
+	assert.Equal(t, "INSERT INTO users (name, created_at) VALUES (?, NOW())", sql)
+	assert.Equal(t, []interface{}{"Alice"}, args)
+}
+
+func TestInsertEmptyBuilder(t *testing.T) {
+	sql, args := query.InsertInto("").ToSQL()
+	assert.Equal(t, "", sql)
+	assert.Nil(t, args)
+
+	sql, args = query.InsertInto("users").ToSQL()
+	assert.Equal(t, "", sql)
+	assert.Nil(t, args)
 }

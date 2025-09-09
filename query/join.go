@@ -25,7 +25,7 @@ func (b *Builder) RightJoin(table, on string) *Builder {
 	return b
 }
 
-// FullJoin adds a FULL JOIN clause (useful for Postgres).
+// FullJoin adds a FULL JOIN clause.
 func (b *Builder) FullJoin(table, on string) *Builder {
 	b.joins = append(b.joins, joinClause{"FULL JOIN", table, on})
 	return b

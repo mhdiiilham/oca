@@ -4,28 +4,34 @@ import (
 	"strings"
 )
 
-// Builder builds SQL queries in a fluent style.
+// Builder builds SQL SELECT queries in a fluent DSL style.
+// It supports SELECT, WHERE, ORDER BY, LIMIT, OFFSET.
 type Builder struct {
-	table   string
-	columns []string
-	joins   []joinClause
-	where   []string
-	args    []any
-	order   string
-	limit   int
-	offset  int
+	table            string
+	columns          []string
+	where            []Condition
+	args             []any
+	order            string
+	limit            int
+	offset           int
+	joins            []joinClause
+	placeholderIndex int // tracks placeholders for dialects
 }
 
-// From starts a new query builder for the given table.
+// From creates a new Builder for a given table.
 func From(table string) *Builder {
 	return &Builder{table: table, limit: -1, offset: -1}
 }
 
-// Where adds a WHERE condition with optional arguments.
-// Multiple calls to Where will be combined with AND.
-func (b *Builder) Where(cond string, args ...any) *Builder {
-	b.where = append(b.where, cond)
-	b.args = append(b.args, args...)
+// Select specifies the columns to select.
+func (b *Builder) Select(cols ...string) *Builder {
+	b.columns = cols
+	return b
+}
+
+// Where adds one or more conditions. Multiple calls are combined with AND.
+func (b *Builder) Where(conds ...Condition) *Builder {
+	b.where = append(b.where, conds...)
 	return b
 }
 
@@ -47,9 +53,11 @@ func (b *Builder) Offset(offset int) *Builder {
 	return b
 }
 
-// Build assembles the SQL query string and returns it
-// along with the bound arguments.
+// Build assembles the SQL string and returns args.
 func (b *Builder) Build() (string, []any) {
+	b.args = nil
+	b.placeholderIndex = 0
+
 	cols := "*"
 	if len(b.columns) > 0 {
 		cols = strings.Join(b.columns, ", ")
@@ -70,23 +78,41 @@ func (b *Builder) Build() (string, []any) {
 		sql.WriteString(j.on)
 	}
 
+	// WHERE
 	if len(b.where) > 0 {
 		sql.WriteString(" WHERE ")
-		sql.WriteString(strings.Join(b.where, " AND "))
+		parts := make([]string, len(b.where))
+		for i, cond := range b.where {
+			expr := cond.Expr
+			for j := 0; j < len(cond.Args); j++ {
+				b.placeholderIndex++
+				expr = strings.Replace(expr, "?", GetDialect().Placeholder(b.placeholderIndex), 1)
+			}
+			parts[i] = expr
+			b.args = append(b.args, cond.Args...)
+		}
+		sql.WriteString(strings.Join(parts, " AND "))
 	}
 
+	// ORDER BY
 	if b.order != "" {
 		sql.WriteString(" ORDER BY ")
 		sql.WriteString(b.order)
 	}
 
+	// LIMIT
 	if b.limit >= 0 {
-		sql.WriteString(" LIMIT ?")
+		b.placeholderIndex++
+		sql.WriteString(" LIMIT ")
+		sql.WriteString(GetDialect().Placeholder(b.placeholderIndex))
 		b.args = append(b.args, b.limit)
 	}
 
+	// OFFSET
 	if b.offset >= 0 {
-		sql.WriteString(" OFFSET ?")
+		b.placeholderIndex++
+		sql.WriteString(" OFFSET ")
+		sql.WriteString(GetDialect().Placeholder(b.placeholderIndex))
 		b.args = append(b.args, b.offset)
 	}
 

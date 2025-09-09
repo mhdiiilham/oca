@@ -7,49 +7,78 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestSimpleSelect(t *testing.T) {
-	sql, args := query.From("users").Select("id", "name").Build()
+func TestBuilder_AllDialects(t *testing.T) {
+	dialects := []struct {
+		name    string
+		dialect query.Dialect
+	}{
+		{"MySQL", query.MySQLDialect{}},
+		{"MariaDB", query.MySQLDialect{}},
+		{"Postgres", query.PostgresDialect{}},
+	}
 
-	assert.Equal(t, "SELECT id, name FROM users", sql)
-	assert.Empty(t, args)
-}
+	for _, d := range dialects {
+		d := d
+		t.Run(d.name, func(t *testing.T) {
+			query.SetDialect(d.dialect)
 
-func TestSelectWithWhere(t *testing.T) {
-	sql, args := query.From("users").
-		Select("id", "name").
-		Where("age > ?", 18).
-		Build()
+			// Simple SELECT
+			sql, args := query.From("users").Select("id", "name").Build()
+			assert.Equal(t, "SELECT id, name FROM users", sql)
+			assert.Empty(t, args)
 
-	assert.Equal(t, "SELECT id, name FROM users WHERE age > ?", sql)
-	assert.Equal(t, []any{18}, args)
-}
+			// Default SELECT *
+			sql, args = query.From("products").Build()
+			assert.Equal(t, "SELECT * FROM products", sql)
+			assert.Empty(t, args)
 
-func TestMultipleWhereClauses(t *testing.T) {
-	sql, args := query.From("users").
-		Select("id").
-		Where("age > ?", 18).
-		Where("status = ?", "active").
-		Build()
+			// WHERE Eq
+			sql, args = query.From("users").Select("id").Where(query.C("age").Gt(18)).Build()
+			if d.name == "Postgres" {
+				assert.Equal(t, "SELECT id FROM users WHERE age > $1", sql)
+			} else {
+				assert.Equal(t, "SELECT id FROM users WHERE age > ?", sql)
+			}
+			assert.Equal(t, []any{18}, args)
 
-	assert.Equal(t, "SELECT id FROM users WHERE age > ? AND status = ?", sql)
-	assert.Equal(t, []any{18, "active"}, args)
-}
+			// Multiple WHERE
+			sql, args = query.From("users").
+				Select("id").
+				Where(query.C("age").Gt(18)).
+				Where(query.C("status").Eq("active")).
+				Build()
+			if d.name == "Postgres" {
+				assert.Equal(t, "SELECT id FROM users WHERE age > $1 AND status = $2", sql)
+			} else {
+				assert.Equal(t, "SELECT id FROM users WHERE age > ? AND status = ?", sql)
+			}
+			assert.Equal(t, []any{18, "active"}, args)
 
-func TestOrderByLimitOffset(t *testing.T) {
-	sql, args := query.From("users").
-		Select("id", "email").
-		OrderBy("created_at DESC").
-		Limit(10).
-		Offset(5).
-		Build()
+			// WHERE IN
+			sql, args = query.From("users").
+				Select("id").
+				Where(query.C("id").In(1, 2, 3)).
+				Build()
+			if d.name == "Postgres" {
+				assert.Equal(t, "SELECT id FROM users WHERE id IN ($1,$2,$3)", sql)
+			} else {
+				assert.Equal(t, "SELECT id FROM users WHERE id IN (?,?,?)", sql)
+			}
+			assert.Equal(t, []any{1, 2, 3}, args)
 
-	assert.Equal(t, "SELECT id, email FROM users ORDER BY created_at DESC LIMIT ? OFFSET ?", sql)
-	assert.Equal(t, []any{10, 5}, args)
-}
-
-func TestDefaultSelectAll(t *testing.T) {
-	sql, args := query.From("products").Build()
-
-	assert.Equal(t, "SELECT * FROM products", sql)
-	assert.Empty(t, args)
+			// ORDER BY + LIMIT + OFFSET
+			sql, args = query.From("users").
+				Select("id").
+				OrderBy("created_at DESC").
+				Limit(10).
+				Offset(5).
+				Build()
+			if d.name == "Postgres" {
+				assert.Equal(t, "SELECT id FROM users ORDER BY created_at DESC LIMIT $1 OFFSET $2", sql)
+			} else {
+				assert.Equal(t, "SELECT id FROM users ORDER BY created_at DESC LIMIT ? OFFSET ?", sql)
+			}
+			assert.Equal(t, []any{10, 5}, args)
+		})
+	}
 }

@@ -24,4 +24,18 @@ type GenericStore[T any] interface {
 	//
 	// u.ID and u.CreatedAt will be automatically set if applicable.
 	Insert(ctx context.Context, entity *T) error
+
+	// Find retrieves multiple records from the database matching the filter.
+	// It automatically maps database rows to struct fields based on the `db` tags.
+	//
+	// Example:
+	//
+	//	todos, err := repo.Find(ctx, FindFilter{
+	//	    Where: map[string]any{"title": "Task 1"},
+	//	    Order: "created_at DESC",
+	//	    Limit: 10,
+	//	})
+	Find(ctx context.Context, filter ...FilterOptions) ([]T, error)
+
+	FindOne(ctx context.Context, opts ...FilterOptions) (*T, error)
 }

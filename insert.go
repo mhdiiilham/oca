@@ -2,6 +2,7 @@ package oca
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 
 	"github.com/mhdiiilham/oca/query"
@@ -61,17 +62,16 @@ func buildInsertQuery[T any](entity *T, cols []string, args []any, autoFields []
 }
 
 func (r *Repository[T]) scanAutoFields(ctx context.Context, entity *T, sqlStr string, sqlArgs []interface{}, autoFields []FieldMeta) error {
-	row := r.db.QueryRowContext(ctx, sqlStr, sqlArgs...)
-	val := reflect.ValueOf(entity).Elem()
-	scanTargets := make([]interface{}, len(autoFields))
-
-	for i, f := range autoFields {
-		field := val.Field(f.Index)
-		if !field.CanAddr() {
-			return &reflect.ValueError{Method: "Insert", Kind: field.Kind()}
-		}
-		scanTargets[i] = field.Addr().Interface()
+	if entity == nil {
+		return fmt.Errorf("scanAutoFields: entity cannot be nil")
 	}
 
-	return row.Scan(scanTargets...)
+	row := r.db.QueryRowContext(ctx, sqlStr, sqlArgs...)
+	val := reflect.ValueOf(entity)
+	targets, err := buildScanTargets(val, autoFields)
+	if err != nil {
+		return err
+	}
+
+	return row.Scan(targets...)
 }

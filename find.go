@@ -49,11 +49,11 @@ func defaultFilter() FindFilter {
 	return FindFilter{}
 }
 
-// Find retrieves multiple records from the database matching the filter.
+// Finds retrieves multiple records from the database matching the filter.
 // It automatically maps database rows to struct fields based on the `db` tags.
-// Find retrieves records from the database based on provided filter options.
+// Finds retrieves records from the database based on provided filter options.
 // It returns a slice of T or an error.
-func (r *Repository[T]) Find(ctx context.Context, opts ...FilterOptions) ([]T, error) {
+func (r *Repository[T]) Finds(ctx context.Context, opts ...FilterOptions) ([]T, error) {
 	var entity T
 	// Build the SQL query
 	builder := query.From(resolveTableName(entity)).Select(getColumnNames(entity)...)
@@ -81,7 +81,7 @@ func (r *Repository[T]) Find(ctx context.Context, opts ...FilterOptions) ([]T, e
 // Returns sql.ErrNoRows if nothing is found.
 func (r *Repository[T]) FindOne(ctx context.Context, opts ...FilterOptions) (*T, error) {
 	opts = append(opts, Limit(1))
-	results, err := r.Find(ctx, opts...)
+	results, err := r.Finds(ctx, opts...)
 	if err != nil {
 		return nil, err
 	}

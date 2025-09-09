@@ -5,10 +5,12 @@ import "context"
 // GenericStore defines a generic interface for basic CRUD operations on any model T.
 // This allows repositories to be abstracted and easily mocked for testing.
 //
-// T can be any struct that represents a database model.
+// T can be any struct that represents a database model, annotated with `db` tags
+// for mapping to database columns.
 type GenericStore[T any] interface {
-	// Insert inserts a new record into the database and sets auto-increment ID or other auto fields if applicable.
-	// It also respects schema defaults, e.g., `schema:"default:now()"`.
+	// Insert inserts a new record into the database and sets auto-increment fields
+	// or other schema defaults if applicable. It respects tags like `db:"...,auto"`
+	// and `schema:"default:now()"`.
 	//
 	// Example:
 	//
@@ -22,20 +24,22 @@ type GenericStore[T any] interface {
 	//	u := &User{Name: "Alice"}
 	//	err := repo.Insert(ctx, u)
 	//
-	// u.ID and u.CreatedAt will be automatically set if applicable.
+	// After insertion, u.ID and u.CreatedAt will be automatically populated if applicable.
 	Insert(ctx context.Context, entity *T) error
 
-	// Find retrieves multiple records from the database matching the filter.
+	// Finds retrieves multiple records from the database matching the provided filters.
 	// It automatically maps database rows to struct fields based on the `db` tags.
 	//
 	// Example:
 	//
-	//	todos, err := repo.Find(ctx, FindFilter{
-	//	    Where: map[string]any{"title": "Task 1"},
-	//	    Order: "created_at DESC",
-	//	    Limit: 10,
-	//	})
-	Find(ctx context.Context, filter ...FilterOptions) ([]T, error)
+	//	todos, err := repo.Finds(ctx, oca.Where(query.C("name").Eq("Hanida Alya")))
+	Finds(ctx context.Context, filter ...FilterOptions) ([]T, error)
 
+	// FindOne retrieves a single record from the database matching the provided filters.
+	// Returns sql.ErrNoRows if no record is found.
+	//
+	// Example:
+	//
+	//	todo, err := repo.FindOne(ctx, oca.Where(query.C("id").Eq(28)))
 	FindOne(ctx context.Context, opts ...FilterOptions) (*T, error)
 }

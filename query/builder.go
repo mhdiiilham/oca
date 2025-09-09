@@ -8,6 +8,7 @@ import (
 type Builder struct {
 	table   string
 	columns []string
+	joins   []joinClause
 	where   []string
 	args    []any
 	order   string
@@ -18,13 +19,6 @@ type Builder struct {
 // From starts a new query builder for the given table.
 func From(table string) *Builder {
 	return &Builder{table: table, limit: -1, offset: -1}
-}
-
-// Select adds columns to the SELECT clause.
-// If no columns are added, "*" will be used.
-func (b *Builder) Select(cols ...string) *Builder {
-	b.columns = append(b.columns, cols...)
-	return b
 }
 
 // Where adds a WHERE condition with optional arguments.
@@ -66,6 +60,15 @@ func (b *Builder) Build() (string, []any) {
 	sql.WriteString(cols)
 	sql.WriteString(" FROM ")
 	sql.WriteString(b.table)
+
+	for _, j := range b.joins {
+		sql.WriteString(" ")
+		sql.WriteString(j.kind)
+		sql.WriteString(" ")
+		sql.WriteString(j.table)
+		sql.WriteString(" ON ")
+		sql.WriteString(j.on)
+	}
 
 	if len(b.where) > 0 {
 		sql.WriteString(" WHERE ")

@@ -7,52 +7,48 @@ import (
 	"github.com/mhdiiilham/oca/query"
 )
 
-// Insert inserts a new record into the database and sets auto-increment ID or other auto fields if applicable.
-// It also respects schema defaults, e.g., `schema:"default:now()"`.
-//
-// Example:
-//
-//	type User struct {
-//	    ID        int64  `db:"id,pk,auto"`
-//	    Name      string `db:"name"`
-//	    CreatedAt time.Time `db:"created_at" schema:"default:now()"`
-//	}
-//
-//	repo := NewRepository[User](db)
-//	u := &User{Name: "Alice"}
-//	err := repo.Insert(ctx, u)
-//
-// u.ID and u.CreatedAt will be automatically set if applicable.
+// Insert inserts the entity into the database.
+// It automatically handles auto-increment fields and schema defaults (e.g., default:now()).
+// Multiple auto fields are supported and populated after insertion.
 func (r *Repository[T]) Insert(ctx context.Context, entity *T) error {
-	fields := parseFields(entity)
-
-	var cols []string
-	var args []any
-	var autoFields []FieldMeta
-
-	// Collect columns, args, and auto fields
-	for _, f := range fields {
-		if f.IsAuto {
-			autoFields = append(autoFields, f.FieldMeta)
-			continue
-		}
-
-		if defaultVal, ok := f.Schema["default"]; ok && defaultVal == "now()" {
-			cols = append(cols, f.Column)
-			args = append(args, query.Raw("NOW()"))
-			continue
-		}
-
-		cols = append(cols, f.Column)
-		args = append(args, f.Value)
+	cols, args, autoFields, err := prepareInsertFields(entity)
+	if err != nil {
+		return err
 	}
 
+	sqlStr, sqlArgs := buildInsertQuery(entity, cols, args, autoFields)
+
+	if len(autoFields) > 0 {
+		return r.scanAutoFields(ctx, entity, sqlStr, sqlArgs, autoFields)
+	}
+
+	_, err = r.db.ExecContext(ctx, sqlStr, sqlArgs...)
+	return err
+}
+
+func prepareInsertFields[T any](entity *T) (cols []string, args []any, autoFields []FieldMeta, err error) {
+	fields := parseFields(entity)
+	for _, f := range fields {
+		switch {
+		case f.IsAuto:
+			autoFields = append(autoFields, f.FieldMeta)
+		case f.Schema["default"] == "now()":
+			cols = append(cols, f.Column)
+			args = append(args, query.Raw("NOW()"))
+		default:
+			cols = append(cols, f.Column)
+			args = append(args, f.Value)
+		}
+	}
+	return
+}
+
+func buildInsertQuery[T any](entity *T, cols []string, args []any, autoFields []FieldMeta) (string, []interface{}) {
 	var t T
 	builder := query.InsertInto(resolveTableName(t)).
 		Columns(cols...).
 		Values(args...)
 
-	// Add RETURNING for all auto fields
 	if len(autoFields) > 0 {
 		autoCols := make([]string, len(autoFields))
 		for i, f := range autoFields {
@@ -61,31 +57,21 @@ func (r *Repository[T]) Insert(ctx context.Context, entity *T) error {
 		builder = builder.Returning(autoCols...)
 	}
 
-	sqlStr, sqlArgs := builder.ToSQL()
+	return builder.ToSQL()
+}
 
-	if len(autoFields) > 0 {
-		// Use QueryRow because we expect RETURNING values
-		row := r.db.QueryRowContext(ctx, sqlStr, sqlArgs...)
+func (r *Repository[T]) scanAutoFields(ctx context.Context, entity *T, sqlStr string, sqlArgs []interface{}, autoFields []FieldMeta) error {
+	row := r.db.QueryRowContext(ctx, sqlStr, sqlArgs...)
+	val := reflect.ValueOf(entity).Elem()
+	scanTargets := make([]interface{}, len(autoFields))
 
-		// Prepare pointers to struct fields for scanning
-		valOfEntity := reflect.ValueOf(entity).Elem()
-		scanTargets := make([]interface{}, len(autoFields))
-		for i, f := range autoFields {
-			field := valOfEntity.Field(f.Index)
-			if !field.CanAddr() {
-				return &reflect.ValueError{Method: "Insert", Kind: field.Kind()}
-			}
-			scanTargets[i] = field.Addr().Interface()
+	for i, f := range autoFields {
+		field := val.Field(f.Index)
+		if !field.CanAddr() {
+			return &reflect.ValueError{Method: "Insert", Kind: field.Kind()}
 		}
-
-		if err := row.Scan(scanTargets...); err != nil {
-			return err
-		}
-
-		return nil
+		scanTargets[i] = field.Addr().Interface()
 	}
 
-	// Normal exec (no auto-returning)
-	_, err := r.db.ExecContext(ctx, sqlStr, sqlArgs...)
-	return err
+	return row.Scan(scanTargets...)
 }

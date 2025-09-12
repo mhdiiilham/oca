@@ -1,0 +1,26 @@
+{
+  "name": "oca",
+  "version": "1.0.0",
+  "description": "Lightweight generic ORM for Go, simple CRUD, extensible design",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mhdiiilham/oca.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/mhdiiilham/oca/issues"
+  },
+  "homepage": "https://github.com/mhdiiilham/oca#readme",
+  "devDependencies": {
+    "@semantic-release/changelog": "^6.0.3",
+    "@semantic-release/git": "^10.0.1",
+    "@semantic-release/github": "^11.0.6",
+    "semantic-release": "^24.2.8"
+  }
+}

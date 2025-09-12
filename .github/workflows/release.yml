@@ -6,11 +6,7 @@ on:
       - main
       - alpha
       - beta
-  pull_request:
-    branches:
-      - main
-      - alpha
-      - beta
+
 
 
 permissions:

@@ -24,7 +24,7 @@ var (
 // It stores one canonical slice in the cache but always returns a copy
 // so callers cannot mutate the cached metadata.
 func getStructMeta(t reflect.Type) []FieldMeta {
-	if t.Kind() == reflect.Ptr {
+	if t.Kind() == reflect.Pointer {
 		t = t.Elem()
 	}
 
@@ -77,17 +77,17 @@ func getStructMeta(t reflect.Type) []FieldMeta {
 // This function is cheap after first call thanks to caching.
 func parseFields(entity any) []struct {
 	FieldMeta
-	Value interface{}
+	Value any
 } {
 	val := reflect.ValueOf(entity)
-	if val.Kind() == reflect.Ptr {
+	if val.Kind() == reflect.Pointer {
 		val = val.Elem()
 	}
 
 	metas := getStructMeta(val.Type())
 	result := make([]struct {
 		FieldMeta
-		Value interface{}
+		Value any
 	}, len(metas))
 
 	for i, m := range metas {
@@ -95,8 +95,8 @@ func parseFields(entity any) []struct {
 		schemaTag := val.Type().Field(m.Index).Tag.Get("schema")
 		schema := map[string]string{}
 		if schemaTag != "" {
-			pairs := strings.Split(schemaTag, ",")
-			for _, pair := range pairs {
+			pairs := strings.SplitSeq(schemaTag, ",")
+			for pair := range pairs {
 				kv := strings.SplitN(pair, ":", 2)
 				if len(kv) == 2 {
 					schema[strings.TrimSpace(kv[0])] = strings.TrimSpace(kv[1])
@@ -108,7 +108,7 @@ func parseFields(entity any) []struct {
 
 		result[i] = struct {
 			FieldMeta
-			Value interface{}
+			Value any
 		}{
 			FieldMeta: m,
 			Value:     val.Field(m.Index).Interface(),

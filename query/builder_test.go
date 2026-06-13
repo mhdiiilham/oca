@@ -18,7 +18,6 @@ func TestBuilder_AllDialects(t *testing.T) {
 	}
 
 	for _, d := range dialects {
-		d := d
 		t.Run(d.name, func(t *testing.T) {
 			query.SetDialect(d.dialect)
 

@@ -14,7 +14,7 @@ func TestInsertSingleRow(t *testing.T) {
 		ToSQL()
 
 	assert.Equal(t, "INSERT INTO users (id, name) VALUES (?, ?)", sql)
-	assert.Equal(t, []interface{}{1, "Alice"}, args)
+	assert.Equal(t, []any{1, "Alice"}, args)
 }
 
 func TestInsertMultipleRows(t *testing.T) {
@@ -25,7 +25,7 @@ func TestInsertMultipleRows(t *testing.T) {
 		ToSQL()
 
 	assert.Equal(t, "INSERT INTO users (id, name) VALUES (?, ?), (?, ?)", sql)
-	assert.Equal(t, []interface{}{1, "Alice", 2, "Bob"}, args)
+	assert.Equal(t, []any{1, "Alice", 2, "Bob"}, args)
 }
 
 func TestInsertWithReturning(t *testing.T) {
@@ -36,7 +36,7 @@ func TestInsertWithReturning(t *testing.T) {
 		ToSQL()
 
 	assert.Equal(t, "INSERT INTO users (id, name) VALUES (?, ?) RETURNING id, created_at", sql)
-	assert.Equal(t, []interface{}{1, "Alice"}, args)
+	assert.Equal(t, []any{1, "Alice"}, args)
 }
 
 func TestInsertWithReturningID(t *testing.T) {
@@ -47,7 +47,7 @@ func TestInsertWithReturningID(t *testing.T) {
 		ToSQL()
 
 	assert.Equal(t, "INSERT INTO users (id, name) VALUES (?, ?) RETURNING id", sql)
-	assert.Equal(t, []interface{}{1, "Alice"}, args)
+	assert.Equal(t, []any{1, "Alice"}, args)
 }
 
 func TestInsertWithRawSQL(t *testing.T) {
@@ -57,7 +57,7 @@ func TestInsertWithRawSQL(t *testing.T) {
 		ToSQL()
 
 	assert.Equal(t, "INSERT INTO users (name, created_at) VALUES (?, NOW())", sql)
-	assert.Equal(t, []interface{}{"Alice"}, args)
+	assert.Equal(t, []any{"Alice"}, args)
 }
 
 func TestInsertEmptyBuilder(t *testing.T) {

@@ -1,0 +1,39 @@
+version: 2
+
+project_name: oca
+
+before:
+  hooks:
+    - go mod tidy
+
+# This is a Go library — no binaries to build.
+builds:
+  - skip: true
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - "^ci:"
+      - "^chore:"
+      - "Merge pull request"
+      - "Merge branch"
+  groups:
+    - title: Features
+      regexp: "^feat"
+      order: 0
+    - title: Bug Fixes
+      regexp: "^fix"
+      order: 1
+    - title: Other Changes
+      order: 999
+
+release:
+  github:
+    owner: mhdiiilham
+    name: oca
+  name_template: "v{{ .Version }}"
+  footer: |
+    **Full Changelog**: https://github.com/mhdiiilham/oca/compare/{{ .PreviousTag }}...{{ .Tag }}

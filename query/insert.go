@@ -19,48 +19,57 @@ func Raw(val string) RawSQL {
 type InsertBuilder struct {
 	table     string
 	columns   []string
-	values    [][]interface{}
+	values    [][]any
 	returning []string
+	dialect   Dialect // nil → falls back to global
 }
 
 // InsertInto creates a new InsertBuilder for the given table.
-// Example: query.InsertInto("users")
 func InsertInto(table string) *InsertBuilder {
 	return &InsertBuilder{table: table}
 }
 
+// WithDialect overrides the SQL dialect for this builder only.
+func (b *InsertBuilder) WithDialect(d Dialect) *InsertBuilder {
+	b.dialect = d
+	return b
+}
+
+func (b *InsertBuilder) getDialect() Dialect {
+	if b.dialect != nil {
+		return b.dialect
+	}
+	return GetDialect()
+}
+
 // Columns sets the columns for the INSERT statement.
-// Example: .Columns("id", "name")
 func (b *InsertBuilder) Columns(cols ...string) *InsertBuilder {
 	b.columns = append(b.columns, cols...)
 	return b
 }
 
-// Values adds a row of values to insert.
-// Supports RawSQL for literals.
-// Example: .Values(1, "John", query.Raw("NOW()"))
-func (b *InsertBuilder) Values(vals ...interface{}) *InsertBuilder {
-	row := make([]interface{}, len(vals))
-	copy(row, vals) // <-- simpler and linter-friendly
+// Values adds a row of values. Supports RawSQL for literals like NOW().
+// Each call adds one row; call multiple times for multi-row inserts.
+func (b *InsertBuilder) Values(vals ...any) *InsertBuilder {
+	row := make([]any, len(vals))
+	copy(row, vals)
 	b.values = append(b.values, row)
 	return b
 }
 
-// Returning specifies columns to return (Postgres style).
-// Example: .Returning("id", "created_at")
+// Returning specifies columns to return after insert (PostgreSQL).
 func (b *InsertBuilder) Returning(cols ...string) *InsertBuilder {
 	b.returning = append(b.returning, cols...)
 	return b
 }
 
-// ReturningID is a convenience method for "RETURNING id".
+// ReturningID is shorthand for Returning("id").
 func (b *InsertBuilder) ReturningID() *InsertBuilder {
 	return b.Returning("id")
 }
 
 // ToSQL builds the final INSERT query and returns the SQL string and arguments.
-// Example output: "INSERT INTO users (id, name) VALUES (?, ?) RETURNING id", [1, "John"]
-func (b *InsertBuilder) ToSQL() (string, []interface{}) {
+func (b *InsertBuilder) ToSQL() (string, []any) {
 	if b.table == "" || len(b.columns) == 0 || len(b.values) == 0 {
 		return "", nil
 	}
@@ -69,17 +78,19 @@ func (b *InsertBuilder) ToSQL() (string, []interface{}) {
 	sb.WriteString(fmt.Sprintf("INSERT INTO %s (%s) VALUES ",
 		b.table, strings.Join(b.columns, ", ")))
 
-	var args []interface{}
+	var args []any
 	var placeholders []string
+	placeholderIdx := 0
 
 	for _, row := range b.values {
 		rowPlaceholders := make([]string, len(row))
 		for i, v := range row {
 			switch v := v.(type) {
 			case RawSQL:
-				rowPlaceholders[i] = string(v) // literal SQL
+				rowPlaceholders[i] = string(v)
 			default:
-				rowPlaceholders[i] = "?"
+				placeholderIdx++
+				rowPlaceholders[i] = b.getDialect().Placeholder(placeholderIdx)
 				args = append(args, v)
 			}
 		}

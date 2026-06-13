@@ -13,7 +13,7 @@ func resolveTableName[T any](entity T) string {
 	}
 
 	typ := reflect.TypeOf(entity)
-	if typ.Kind() == reflect.Ptr {
+	if typ.Kind() == reflect.Pointer {
 		typ = typ.Elem()
 	}
 
@@ -21,15 +21,15 @@ func resolveTableName[T any](entity T) string {
 	return strings.ToLower(typ.Name()) + "s"
 }
 
-func buildScanTargets(val reflect.Value, fields []FieldMeta) ([]interface{}, error) {
-	if val.Kind() == reflect.Ptr {
+func buildScanTargets(val reflect.Value, fields []FieldMeta) ([]any, error) {
+	if val.Kind() == reflect.Pointer {
 		val = val.Elem()
 	}
 	if !val.IsValid() {
 		return nil, fmt.Errorf("buildScanTargets: invalid value")
 	}
 
-	targets := make([]interface{}, len(fields))
+	targets := make([]any, len(fields))
 	for i, f := range fields {
 		field := val.Field(f.Index)
 		if !field.CanAddr() {

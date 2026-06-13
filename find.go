@@ -8,20 +8,18 @@ import (
 	"github.com/mhdiiilham/oca/query"
 )
 
-// FindFilter defines filters for the Find method.
+// FindFilter carries the options applied to a SELECT query.
 type FindFilter struct {
-	Where  []query.Condition // WHERE conditions (multiple)
-	Order  string            // ORDER BY clause
-	Limit  int               // LIMIT
-	Offset int               // OFFSET
+	Where  []query.Condition
+	Order  string
+	Limit  int
+	Offset int
 }
 
 // FilterOptions modifies a FindFilter.
 type FilterOptions func(*FindFilter)
 
-// Where adds a WHERE condition using the query DSL.
-//
-// Example:
+// Where adds a WHERE condition.
 //
 //	Where(query.C("age").Gt(18))
 func Where(cond query.Condition) FilterOptions {
@@ -30,9 +28,27 @@ func Where(cond query.Condition) FilterOptions {
 	}
 }
 
-// OrderBy sets the ORDER BY clause.
-func OrderBy(order string) FilterOptions {
-	return func(ff *FindFilter) { ff.Order = order }
+// Direction is the sort direction for OrderBy.
+type Direction string
+
+const (
+	ASC  Direction = "ASC"
+	DESC Direction = "DESC"
+)
+
+// OrderBy sets a safe ORDER BY on a column and direction.
+//
+//	oca.OrderBy("created_at", oca.DESC)
+func OrderBy(col string, dir Direction) FilterOptions {
+	return func(ff *FindFilter) {
+		ff.Order = col + " " + string(dir)
+	}
+}
+
+// OrderByRaw sets a raw ORDER BY clause. The string is written directly into
+// SQL without escaping — do not pass user input here.
+func OrderByRaw(raw string) FilterOptions {
+	return func(ff *FindFilter) { ff.Order = raw }
 }
 
 // Limit sets the LIMIT clause.
@@ -49,14 +65,10 @@ func defaultFilter() FindFilter {
 	return FindFilter{}
 }
 
-// Finds retrieves multiple records from the database matching the filter.
-// It automatically maps database rows to struct fields based on the `db` tags.
-// Finds retrieves records from the database based on provided filter options.
-// It returns a slice of T or an error.
+// Finds retrieves records matching the provided filter options.
 func (r *Repository[T]) Finds(ctx context.Context, opts ...FilterOptions) ([]T, error) {
 	var entity T
-	// Build the SQL query
-	builder := query.From(resolveTableName(entity)).Select(getColumnNames(entity)...)
+	builder := query.From(resolveTableName(entity)).WithDialect(r.dialect).Select(getColumnNames(entity)...)
 
 	filter := defaultFilter()
 	for _, opt := range opts {
@@ -70,30 +82,27 @@ func (r *Repository[T]) Finds(ctx context.Context, opts ...FilterOptions) ([]T, 
 	sqlStr, args := builder.Build()
 	rows, err := r.db.QueryContext(ctx, sqlStr, args...)
 	if err != nil {
-		return nil, fmt.Errorf("query error: %w", err)
+		return nil, fmt.Errorf("oca: finds: %w", err)
 	}
 	defer rows.Close()
 
 	return scanRows[T](rows)
 }
 
-// FindOne retrieves a single record from the database based on the filter.
-// Returns sql.ErrNoRows if nothing is found.
+// FindOne retrieves one record matching the filter. Returns sql.ErrNoRows when nothing matches.
 func (r *Repository[T]) FindOne(ctx context.Context, opts ...FilterOptions) (*T, error) {
 	opts = append(opts, Limit(1))
 	results, err := r.Finds(ctx, opts...)
 	if err != nil {
 		return nil, err
 	}
-
 	if len(results) == 0 {
 		return nil, sql.ErrNoRows
 	}
-
 	return &results[0], nil
 }
 
-// applyFilters applies WHERE, ORDER BY, LIMIT, OFFSET to the query builder
+// applyFilters applies WHERE, ORDER BY, LIMIT, OFFSET to the query builder.
 func applyFilters(b *query.Builder, f FindFilter) {
 	for _, cond := range f.Where {
 		b.Where(cond)

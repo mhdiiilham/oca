@@ -75,7 +75,7 @@ func Test_scanAutoFields(t *testing.T) {
 
 	user := &userTest{Name: "Alice"}
 
-	err := scanAutoFields(context.Background(), db, "INSERT INTO users (name) VALUES (?) RETURNING id", []interface{}{"Alice"}, user, autoFields)
+	err := scanAutoFields(context.Background(), db, "INSERT INTO users (name) VALUES (?) RETURNING id", []any{"Alice"}, user, autoFields)
 	assert.NoError(t, err)
 	assert.Equal(t, int64(10), user.ID)
 	assert.NoError(t, mock.ExpectationsWereMet())

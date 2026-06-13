@@ -69,8 +69,7 @@ func TestGetColumnNamesWithSchema(t *testing.T) {
 }
 
 func TestCacheBehaviorWithSchema(t *testing.T) {
-	todo := TodoModel{}
-	typ := reflect.TypeOf(todo)
+	typ := reflect.TypeFor[TodoModel]()
 
 	// First call builds metadata
 	metas1 := getStructMeta(typ)

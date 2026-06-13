@@ -35,7 +35,7 @@ func TestRepository_Find(t *testing.T) {
 		WillReturnRows(rows)
 
 	todos, err := repo.Finds(context.Background(),
-		oca.OrderBy("created_at DESC"),
+		oca.OrderBy("created_at", oca.DESC),
 		oca.Limit(10),
 		oca.Offset(0),
 		oca.Where(

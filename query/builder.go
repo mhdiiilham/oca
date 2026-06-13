@@ -5,7 +5,6 @@ import (
 )
 
 // Builder builds SQL SELECT queries in a fluent DSL style.
-// It supports SELECT, WHERE, ORDER BY, LIMIT, OFFSET.
 type Builder struct {
 	table            string
 	columns          []string
@@ -15,12 +14,27 @@ type Builder struct {
 	limit            int
 	offset           int
 	joins            []joinClause
-	placeholderIndex int // tracks placeholders for dialects
+	dialect          Dialect // nil → falls back to global
+	placeholderIndex int
 }
 
 // From creates a new Builder for a given table.
 func From(table string) *Builder {
 	return &Builder{table: table, limit: -1, offset: -1}
+}
+
+// WithDialect overrides the SQL dialect for this builder only.
+// When not set, the global dialect (set via SetDialect) is used.
+func (b *Builder) WithDialect(d Dialect) *Builder {
+	b.dialect = d
+	return b
+}
+
+func (b *Builder) getDialect() Dialect {
+	if b.dialect != nil {
+		return b.dialect
+	}
+	return GetDialect()
 }
 
 // Select specifies the columns to select.
@@ -35,7 +49,8 @@ func (b *Builder) Where(conds ...Condition) *Builder {
 	return b
 }
 
-// OrderBy sets the ORDER BY clause.
+// OrderBy sets the ORDER BY clause from a raw string (e.g. "created_at DESC").
+// The value is written directly into SQL — do not pass user input.
 func (b *Builder) OrderBy(order string) *Builder {
 	b.order = order
 	return b
@@ -86,7 +101,7 @@ func (b *Builder) Build() (string, []any) {
 			expr := cond.Expr
 			for j := 0; j < len(cond.Args); j++ {
 				b.placeholderIndex++
-				expr = strings.Replace(expr, "?", GetDialect().Placeholder(b.placeholderIndex), 1)
+				expr = strings.Replace(expr, "?", b.getDialect().Placeholder(b.placeholderIndex), 1)
 			}
 			parts[i] = expr
 			b.args = append(b.args, cond.Args...)
@@ -104,7 +119,7 @@ func (b *Builder) Build() (string, []any) {
 	if b.limit >= 0 {
 		b.placeholderIndex++
 		sql.WriteString(" LIMIT ")
-		sql.WriteString(GetDialect().Placeholder(b.placeholderIndex))
+		sql.WriteString(b.getDialect().Placeholder(b.placeholderIndex))
 		b.args = append(b.args, b.limit)
 	}
 
@@ -112,7 +127,7 @@ func (b *Builder) Build() (string, []any) {
 	if b.offset >= 0 {
 		b.placeholderIndex++
 		sql.WriteString(" OFFSET ")
-		sql.WriteString(GetDialect().Placeholder(b.placeholderIndex))
+		sql.WriteString(b.getDialect().Placeholder(b.placeholderIndex))
 		b.args = append(b.args, b.offset)
 	}
 

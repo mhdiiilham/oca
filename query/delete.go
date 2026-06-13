@@ -9,6 +9,7 @@ type DeleteBuilder struct {
 	table            string
 	where            []Condition
 	args             []any
+	dialect          Dialect // nil → falls back to global
 	placeholderIndex int
 }
 
@@ -16,28 +17,34 @@ type DeleteBuilder struct {
 //
 // Example:
 //
-//	q := query.Delete("users").
-//		Where("id = ?", 42)
-//
+//	q := query.Delete("users").Where(query.C("id").Eq(42))
 //	sql, args := q.Build()
 //	 MySQL:    "DELETE FROM users WHERE id = ?"
 //	 Postgres: "DELETE FROM users WHERE id = $1"
-//	 args: [42]
 func Delete(table string) *DeleteBuilder {
-	return &DeleteBuilder{
-		table: table,
-	}
+	return &DeleteBuilder{table: table}
 }
 
-// Where adds a WHERE clause to the DELETE query.
-// Multiple calls are joined with AND.
+// WithDialect overrides the SQL dialect for this builder only.
+func (b *DeleteBuilder) WithDialect(d Dialect) *DeleteBuilder {
+	b.dialect = d
+	return b
+}
+
+func (b *DeleteBuilder) getDialect() Dialect {
+	if b.dialect != nil {
+		return b.dialect
+	}
+	return GetDialect()
+}
+
+// Where adds a WHERE clause. Multiple calls are joined with AND.
 func (b *DeleteBuilder) Where(conds ...Condition) *DeleteBuilder {
 	b.where = append(b.where, conds...)
 	return b
 }
 
 // Build assembles the SQL DELETE query string and returns it with args.
-// It rewrites placeholders depending on the active dialect.
 func (b *DeleteBuilder) Build() (string, []any) {
 	var sql strings.Builder
 	sql.WriteString("DELETE FROM ")
@@ -50,7 +57,7 @@ func (b *DeleteBuilder) Build() (string, []any) {
 			expr := cond.Expr
 			for j := 0; j < len(cond.Args); j++ {
 				b.placeholderIndex++
-				expr = strings.Replace(expr, "?", GetDialect().Placeholder(b.placeholderIndex), 1)
+				expr = strings.Replace(expr, "?", b.getDialect().Placeholder(b.placeholderIndex), 1)
 			}
 			parts[i] = expr
 			b.args = append(b.args, cond.Args...)
